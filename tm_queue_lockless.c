@@ -34,7 +34,7 @@ int tm_queue_push_back_lockless(void *_q, void *data)
 	int result = 0;
 	queue_lockless *q = (queue_lockless *)_q;
 	if (q && data) {
-		if (rqueue_write(q->q, (void*) data) == 0)
+		if (rqueue_write(q->q, data) == 0)
 			result = 1;
 	}
 	return result;

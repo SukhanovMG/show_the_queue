@@ -44,7 +44,7 @@ add_library(QUEUE OBJECT
 
 add_dependencies(QUEUE libhl)
 
-set(SRC main.c)
+set(SRC main.c tm_block.c tm_refcount.c)
 
 add_executable(${CMAKE_PROJECT_NAME} ${SRC} $<TARGET_OBJECTS:QUEUE>)
 target_link_libraries(${CMAKE_PROJECT_NAME}

@@ -86,7 +86,7 @@ int tm_queue_push_back(tm_queue_ctx *_q, void **push_array, int count)
 
 	if (q && push_array && count > 0) {
 		for (int i = 0; i < count; i++ ) {
-			result = q->backend.push_back_func(q->backend.ctx, &push_array[i]);
+			result = q->backend.push_back_func(q->backend.ctx, push_array[i]);
 			if (result != 1) {
 				break;
 			}
