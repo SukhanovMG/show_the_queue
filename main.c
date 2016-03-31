@@ -32,15 +32,29 @@ typedef struct _work_thread {
 	pthread_t id;
 	tm_queue_ctx *q;
 	volatile int stop;
+	int pipe_fd[2];
 } work_thread;
 
 void *thread_func(void *arg)
 {
 	work_thread *thread = (work_thread*)arg;
 	while (__sync_add_and_fetch(&thread->stop, 0) == 0) {
-		void *data_array[100] = {NULL};
-		tm_queue_pop_front(thread->q, (void**)data_array, 100);
-		for (size_t i = 0; i < 100; i++) {
+		size_t count = 0;
+		int res = read(thread->pipe_fd[0], &count, sizeof(count));
+		if (res < 0) {
+			fprintf(stderr, "%s\n", "read fail");
+		}
+
+		if (count <= 0) {
+			fprintf(stderr, "%s\n", "count <= 0");
+			break;
+		}
+
+		void *data_array[count];
+		for (size_t i = 0; i < count; i++)
+			data_array[i] = NULL;
+		tm_queue_pop_front(thread->q, (void**)data_array, count);
+		for (size_t i = 0; i < count; i++) {
 			if (data_array[i] == NULL) {
 				break;
 			}
@@ -62,6 +76,10 @@ void work_thread_delete(work_thread *thread)
 			else
 				break;
 		}
+		if (thread->pipe_fd[0])
+			close(thread->pipe_fd[0]);
+		if (thread->pipe_fd[1])
+			close(thread->pipe_fd[1]);
 		tm_queue_destroy(thread->q);
 		free(thread);
 	}
@@ -75,8 +93,10 @@ work_thread *work_thread_new()
 	if (thread) {
 		thread->q = tm_queue_create(kTmQueueLockless);
 		if (thread->q) {
-			int res = pthread_create(&thread->id, NULL, thread_func, thread);
-			success = res == 0 ? 1 : 0;
+			if (pipe(thread->pipe_fd) == 0) {
+				int res = pthread_create(&thread->id, NULL, thread_func, thread);
+				success = res == 0 ? 1 : 0;	
+			}
 		}
 	}
 
@@ -112,7 +132,14 @@ int main()
 			for (size_t i = 0; i < BLOCKS_PER_PERIOD; i++)
 				data_array[i] = (void*)tm_block_transfer_block(block);
 			tm_queue_push_back(wt->q, (void**)data_array, BLOCKS_PER_PERIOD);
+			size_t c = BLOCKS_PER_PERIOD;
+			int write_res = write(wt->pipe_fd[1], &c, sizeof(c));
 			tm_block_dispose_block(block);
+
+			if (write_res < 0) {
+				fprintf(stderr, "%s\n", "write fail");
+				break;
+			}
 
 			time_after_work = get_time();
 			diff = time_after_work - current_time;
@@ -122,6 +149,8 @@ int main()
 			sleep_time_usec = (BLOCK_PERIOD - diff) * 1.0e6;
 			usleep(sleep_time_usec);
 		}
+		size_t zero = 0;
+		write(wt->pipe_fd[1], &zero, sizeof(zero));
 		__sync_add_and_fetch(&wt->stop, 1);
 		pthread_join(wt->id, NULL);
 	}
