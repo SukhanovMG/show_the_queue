@@ -39,7 +39,7 @@ void *thread_func(void *arg)
 	work_thread *thread = (work_thread*)arg;
 	while (__sync_add_and_fetch(&thread->stop, 0) == 0) {
 		void *data_array[100] = {NULL};
-		tm_queue_pop_front(thread->q, (void**)data_array, 100);
+		int pop_res = tm_queue_pop_front(thread->q, (void**)data_array, 100);
 		for (size_t i = 0; i < 100; i++) {
 			if (data_array[i] == NULL) {
 				break;
@@ -47,6 +47,8 @@ void *thread_func(void *arg)
 			tm_block *block = (tm_block*)data_array[i];
 			tm_block_dispose_block(block);
 		}
+		if (pop_res == 0)
+			usleep(100);
 	}
 	return NULL;
 }
