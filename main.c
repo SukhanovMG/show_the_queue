@@ -14,6 +14,8 @@
 
 #define TEST_TIME 10
 
+static size_t sent, received;
+
 double get_time()
 {
 	double result = 0.0;
@@ -59,6 +61,7 @@ void *thread_func(void *arg)
 				break;
 			}
 			tm_block *block = (tm_block*)data_array[i];
+			received++;
 			tm_block_dispose_block(block);
 		}
 	}
@@ -134,6 +137,7 @@ int main()
 			tm_queue_push_back(wt->q, (void**)data_array, BLOCKS_PER_PERIOD);
 			size_t c = BLOCKS_PER_PERIOD;
 			int write_res = write(wt->pipe_fd[1], &c, sizeof(c));
+			sent+=BLOCKS_PER_PERIOD;
 			tm_block_dispose_block(block);
 
 			if (write_res < 0) {
@@ -155,5 +159,6 @@ int main()
 		pthread_join(wt->id, NULL);
 	}
 	work_thread_delete(wt);
+	printf("sent: %zu; received: %zu\n", sent, received);
 	return 0;
 }
